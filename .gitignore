@@ -1,0 +1,7 @@
+# Folder cache & sistem editor
+__pycache__/
+.streamlit/
+.vscode/
+
+# Dokumentasi 
+README.md
