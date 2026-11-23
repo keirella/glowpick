@@ -133,10 +133,11 @@ button[data-variant="pills"][aria-pressed="true"]:hover{color:#fff !important}
 .rec{
   position:relative; display:grid; grid-template-columns:auto 1fr auto; gap:1.1rem; align-items:center;
   background:#fff; border:1px solid var(--line); border-radius:24px; padding:1.1rem 1.4rem 1.1rem 1.1rem;
-  box-shadow:0 10px 28px rgba(224,69,123,.06); transition:transform .3s ease, box-shadow .3s ease; overflow:hidden;
+  box-shadow:0 10px 28px rgba(224,69,123,.06); transition:transform .3s ease, box-shadow .3s ease;
 }
-.rec:hover{transform:translateY(-4px); box-shadow:0 18px 40px rgba(224,69,123,.14)}
-.rec::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--accent-bar,#F29AB9)}
+.rec:hover, .rec:focus-within{transform:translateY(-4px); box-shadow:0 18px 40px rgba(224,69,123,.14); z-index:5}
+.rec::before{content:""; position:absolute; left:0; top:0; bottom:0; width:24px; border-radius:24px 0 0 24px; pointer-events:none;
+  background:linear-gradient(90deg,var(--accent-bar,#F29AB9) 0 6px,transparent 6px)}
 .rec.top1{--accent-bar:#E0457B} .rec.top2{--accent-bar:#F28AB0} .rec.top3{--accent-bar:#F7B2CB}
 .rec.alt{background:#FFF9FB}
 .ava{position:relative; width:84px; height:84px; border-radius:50%; display:grid; place-items:center; font-size:2.3rem; margin-left:.4rem; background:var(--g); box-shadow:0 10px 22px rgba(224,69,123,.14); border:4px solid #fff}
@@ -151,7 +152,7 @@ button[data-variant="pills"][aria-pressed="true"]:hover{color:#fff !important}
 .alt-badge{background:#FBDDE9; color:#B03060}
 .detail{font-size:.8rem; color:var(--muted); margin-top:.35rem; line-height:1.5}
 .detail b{color:var(--ink)}
-.score{text-align:center; min-width:150px}
+.score{position:relative; text-align:center; min-width:150px}
 .ring{--p:0; width:92px; height:92px; border-radius:50%; margin:0 auto .35rem; display:grid; place-items:center;
   background:conic-gradient(#E0457B calc(var(--p)*1%), #FBDDE9 0)}
 .ring span{width:72px; height:72px; border-radius:50%; background:#fff; display:grid; place-items:center; font-weight:800; font-size:1.25rem; color:var(--ink)}
@@ -161,11 +162,19 @@ button[data-variant="pills"][aria-pressed="true"]:hover{color:#fff !important}
 .bar i{flex:1; height:6px; border-radius:99px; background:#FBDDE9; overflow:hidden; display:block}
 .bar i em{display:block; height:100%; border-radius:99px; background:#EC6B9C}
 .bar span{width:44px}
+/* tooltip angka saat hover di batang pink */
+.bar{position:relative; cursor:help}
+.bar::after{content:attr(data-tip); position:absolute; right:0; bottom:calc(100% + 6px); white-space:nowrap; z-index:30;
+  background:var(--ink); color:#fff; font-size:.72rem; font-weight:600; padding:.3rem .65rem; border-radius:8px;
+  box-shadow:0 8px 20px rgba(59,31,43,.25); opacity:0; visibility:hidden; pointer-events:none; transform:translateY(4px);
+  transition:opacity .15s ease, transform .15s ease, visibility .15s}
+.bar:hover::after{opacity:1; visibility:visible; transform:translateY(0)}
 .note{background:#fff; border:1px dashed #F29AB9; border-radius:16px; padding:.7rem 1rem; color:var(--muted); font-size:.86rem; margin:.5rem 0 1rem}
 .err{background:#FFEDF4; border:1px solid #F0BAD0; border-radius:14px; padding:.7rem 1rem; color:#E0457B; font-weight:600; margin:.5rem 0}
 @media (max-width:760px){
   .rec{grid-template-columns:1fr; text-align:left} .score{min-width:0; text-align:left} .ring{margin:0 0 .35rem}
   .hero h1{font-size:1.7rem}
+  .bar::after{right:auto; left:0}
 }
 /* ---------- tambahan Bab 3 ---------- */
 .rec details{margin-top:.55rem; font-size:.8rem}

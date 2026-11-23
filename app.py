@@ -5,6 +5,7 @@ import io
 import pandas as pd
 import streamlit as st
 
+import cbf
 import config as C
 import engine as E
 import smart
@@ -32,7 +33,7 @@ LOGO_URI = "data:image/svg+xml;base64," + base64.b64encode(LOGO_SVG.encode()).de
 TYPE_STYLE = {
     "Facial Wash": ("🫧", "linear-gradient(135deg,#FFE3EE,#F9B4CE)"), "Toner": ("💧", "linear-gradient(135deg,#FFE9F1,#F7A8C6)"),
     "Serum": ("🧪", "linear-gradient(135deg,#FFDDEA,#F29AB9)"), "Moisturizer": ("🧴", "linear-gradient(135deg,#FFEDF4,#F8BBD3)"),
-    "Sunscreen": ("☀️", "linear-gradient(135deg,#FFE6EF,#F5A3C1)"), "Masker": ("🎭", "linear-gradient(135deg,#FFEAF3,#F4A9C7)"),
+    "Sunscreen": ("☀️", "linear-gradient(135deg,#FFE6EF,#F5A3C1)"),
 }
 
 WEIGHT_LABELS = {
@@ -209,7 +210,11 @@ def card_html(row, w) -> str:
         f"<span class='chip t'>{esc(row.tekstur_produk)}</span>" if str(row.tekstur_produk).strip() else "",
         f"<span class='chip m'>{esc(row.masalah_kulit)}</span>" if str(row.masalah_kulit).strip() else ""])
     n = int(row.jumlah_bahan_cocok)
-    bar = lambda name, v: f"<div class='bar'><span>{name}</span><i><em style='width:{v*100:.0f}%'></em></i></div>"
+    bar = lambda name, v, tip: f"<div class='bar' data-tip='{tip}'><span>{name}</span><i><em style='width:{v*100:.0f}%'></em></i></div>"
+    t_cbf = f"Kemiripan = {row.sim:.3f} (penyaring, tidak masuk skor)"
+    t_harga = f"Utilitas {row.u_harga:.2f} × bobot {w['harga']:.2f} = {row.u_harga*w['harga']:.3f}"
+    t_rating = f"Utilitas {row.u_rating:.2f} × bobot {w['rating']:.2f} = {row.u_rating*w['rating']:.3f}"
+    t_bahan = f"Utilitas {row.u_bahan:.2f} × bobot {w['bahan_aktif']:.2f} = {row.u_bahan*w['bahan_aktif']:.3f}"
     detail = h(f"""<details><summary>Rincian nilai</summary><table>
         <tr><th>Komponen</th><th>Nilai</th><th>Bobot</th></tr>
         <tr><td>sim(u, p) - CBF</td><td>{row.sim:.4f}</td><td>-</td></tr>
@@ -235,7 +240,7 @@ def card_html(row, w) -> str:
       <div class='score'>
         <div class='ring' style='--p:{row.smart*100:.0f}'><span>{row.smart*100:.0f}</span></div>
         <small>Skor akhir U<sub>i</sub> = {row.smart:.3f}</small>
-        <div class='bars'>{bar('CBF', min(row.sim,1))}{bar('Harga', row.u_harga)}{bar('Rating', row.u_rating)}{bar('Bahan', row.u_bahan)}</div>
+        <div class='bars'>{bar('CBF', min(row.sim,1), t_cbf)}{bar('Harga', row.u_harga, t_harga)}{bar('Rating', row.u_rating, t_rating)}{bar('Bahan', row.u_bahan, t_bahan)}</div>
       </div>
     </div>""")
 
@@ -259,13 +264,16 @@ def page_results():
     chips += "".join(f"<span class='chip'>{esc(C.TEXTURE_OPTIONS[k])}</span>" for k in inp["tex"])
     chips += f"<span class='chip'>Budget ≤ {rupiah(inp['budget'])}</span>"
     st.markdown(h(f"""<div class='summary'><h2>Rekomendasi {esc(inp['ptype'])} untukmu</h2>
-        <p>{info['n_candidates']} dari {info['n_total']} produk lolos penyaringan CBF (sim ≥ {info['theta']:.2f} dan harga ≤ budget),
-        lalu diperingkat dengan SMART. Bobot kepentinganmu: harga {w['harga']:.2f}, rating {w['rating']:.2f}, bahan aktif {w['bahan_aktif']:.2f}.</p>
+        <p>{info.get('n_cbf', info['n_candidates'])} dari {info['n_total']} produk lolos penyaringan CBF (sim ≥ {info['theta']:.2f} dan harga ≤ budget),
+        lalu diperingkat dengan SMART{f" ({info['n_low_smart']} produk dengan skor Ui &lt; {info['smart_min']:.2f} tidak ditampilkan)" if info.get('n_low_smart') else ""}. Bobot kepentinganmu: harga {w['harga']:.2f}, rating {w['rating']:.2f}, bahan aktif {w['bahan_aktif']:.2f}.</p>
         <div>{chips}</div></div>"""), unsafe_allow_html=True)
 
     # ---- tidak ada kandidat / hasil terbatas (θ TIDAK diturunkan otomatis)
     if info["n_candidates"] == 0:
-        if info["n_pass_sim"] == 0:
+        if info.get("n_low_smart"):
+            why = (f"{info['n_low_smart']} produk lolos penyaringan, tetapi semuanya punya skor SMART (Ui) di bawah {info['smart_min']:.2f}. "
+                   "Coba ubah bobot kepentingan, naikkan budget, atau kurangi pilihan profil.")
+        elif info["n_pass_sim"] == 0:
             why = "Tidak ada produk yang cukup mirip dengan profilmu. Coba kurangi pilihan tekstur/masalah kulit atau ganti jenis produk."
         else:
             why = (f"{info['n_pass_sim']} produk cocok dengan profilmu, tetapi semuanya di atas budget. "
@@ -303,14 +311,31 @@ def page_results():
         st.markdown(f"<div class='note'>ℹ️ Produk tanpa rating diberi utilitas netral ({C.RATING_NETRAL}).</div>", unsafe_allow_html=True)
 
     with st.expander("📊 Tabel perhitungan CBF & SMART"):
-        st.caption(f"θ = {info['theta']:.2f} · profil pengguna u = {{{', '.join(info['profile'])}}} · "
-                   f"bobot (harga/rating/bahan) = {w['harga']:.4f} / {w['rating']:.4f} / {w['bahan_aktif']:.4f}")
+        res = cbf.run_cbf(df, inp["ptype"], inp["skin"], inp["tex"], inp["concern"], inp["budget"])
+        term_tbl, prod_tbl = cbf.explain(res, inp["budget"])
         tbl = ranked[["peringkat", "brand", "nama_produk", "sim", "harga_num", "rating_num", "jumlah_bahan_cocok",
                       "u_harga", "u_rating", "u_bahan", "smart"]].copy()
         tbl.columns = ["Peringkat", "Merek", "Produk", "sim(u,p)", "Harga (Rp)", "Rating", "Bahan aktif sesuai",
                        "U Harga", "U Rating", "U Bahan", "Skor Ui"]
-        st.dataframe(tbl.round(4), hide_index=True, use_container_width=True)
-        buf = io.BytesIO(); tbl.round(4).to_excel(buf, index=False, sheet_name="Hasil")
+        t1, t2, t3 = st.tabs(["1 · CBF: profil & IDF", "2 · CBF: kemiripan produk", "3 · SMART"])
+        with t1:
+            st.caption(f"Profil pengguna u = {{{', '.join(info['profile'])}}} · N = {res.n_total} produk berjenis {inp['ptype']} · "
+                       f"TF biner: TF = 1/|u| = 1/{len(info['profile'])} · IDF = log10(N/df) · TF-IDF = TF × IDF")
+            st.dataframe(term_tbl.round(4), hide_index=True, use_container_width=True)
+        with t2:
+            st.caption(f"sim(u,p) = (u·p) / (|u| × |p|) (cosine similarity). Produk lolos CBF bila sim ≥ θ = {info['theta']:.2f} "
+                       f"dan harga ≤ {rupiah(inp['budget'])}. |d| = jumlah istilah produk.")
+            st.dataframe(prod_tbl.round(4), hide_index=True, use_container_width=True)
+        with t3:
+            st.caption(f"bobot (harga/rating/bahan) = {w['harga']:.4f} / {w['rating']:.4f} / {w['bahan_aktif']:.4f} · "
+                       "Ui = Σ (utilitas × bobot)" +
+                       (f" · produk dengan Ui < {info['smart_min']:.2f} tidak ditampilkan" if info.get("n_low_smart") else ""))
+            st.dataframe(tbl.round(4), hide_index=True, use_container_width=True)
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as xw:
+            term_tbl.round(4).to_excel(xw, index=False, sheet_name="CBF Profil & IDF")
+            prod_tbl.round(4).to_excel(xw, index=False, sheet_name="CBF Kemiripan")
+            tbl.round(4).to_excel(xw, index=False, sheet_name="SMART")
         st.download_button("⬇️ Unduh hasil (Excel)", buf.getvalue(), "hasil_rekomendasi.xlsx",
                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 

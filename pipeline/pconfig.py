@@ -29,7 +29,6 @@ BRANDS = {
 
 TYPE_KEYWORDS = [
     ("Sunscreen",   ["sunscreen", "sun screen", "sunblock", "sun block", "sun protect", "spf", "uv shield", "sun serum", "sun gel"]),
-    ("Masker",      ["mask", "masker", "sleeping pack", "clay pack"]),
     ("Serum",       ["serum", "ampoule", "booster", "spot gel", "spot treatment", "essence serum"]),
     ("Toner",       ["toner", "essence", "face mist", "exfoliating water", "tonic"]),
     ("Facial Wash", ["facial wash", "face wash", "cleanser", "cleansing", "facial foam", "face foam", "foaming", "wash", "micellar", "cleansing gel"]),
@@ -66,11 +65,9 @@ TEXTURE_DICT = {
     "Foam":       ["foam", "busa", "bubble", "mousse"],
     "Krim":       ["krim", "cream"],
     "Lotion":     ["lotion", "losion", "milk"],
-    "Clay":       ["clay", "tanah liat", "mud"],
-    "Sheet mask": ["sheet mask", "sheet", "peel-off", "peel off"],
 }
 DEFAULT_TEXTURE = {"Facial Wash": "Foam", "Toner": "Cair", "Serum": "Cair", "Moisturizer": "Cream",
-                   "Sunscreen": "Lotion ringan", "Masker": "Clay"}
+                   "Sunscreen": "Lotion ringan"}
 
 # bahan aktif -> masalah yang disasar
 ACTIVES = [

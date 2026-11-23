@@ -29,8 +29,6 @@ def texture_tags(text) -> set[str]:
     if _has(t, ["foam", "busa", "bubble", "mousse"]): tags.add("foam")
     if _has(t, ["krim", "cream"]): tags.add("krim")
     if _has(t, ["lotion", "losion", "milk"]): tags.add("lotion")
-    if _has(t, ["clay", "tanah liat"]): tags.add("clay")
-    if _has(t, ["sheet", "peel-off", "peel off"]): tags.add("sheet")
     return tags
 
 

@@ -66,3 +66,41 @@ def run_cbf(df: pd.DataFrame, jenis_produk: str, skin, texture, concern, budget:
                      n_over_budget=len(lolos_sim) - len(cand), theta=theta,
                      min_price_pass=(float(lolos_sim['harga_num'].min()) if len(lolos_sim) else None),
                      limited=len(cand) < min_candidates, min_candidates=min_candidates, profile=profile, idf=idf)
+
+
+def explain(res: CBFResult, budget: float, theta: float = config.THETA):
+    """Rincian perhitungan CBF untuk ditampilkan: (tabel istilah profil + IDF, tabel kemiripan tiap produk)."""
+    d = res.scored
+    docs = [product_terms(r) for _, r in d.iterrows()]
+    n = len(docs)
+    prof = set(res.profile)
+    u = tfidf(prof, res.idf)
+    nu = math.sqrt(sum(w * w for w in u.values()))
+
+    rows = []
+    for t in res.profile:
+        df_t = sum(1 for doc in docs if t in doc)
+        rows.append({"Istilah": t, "df": df_t,
+                     "IDF = log10(N/df)": (res.idf[t] if t in res.idf else None),
+                     "TF pengguna": (1 / len(prof)),
+                     "TF-IDF pengguna": u.get(t, 0.0),
+                     "Keterangan": "dipakai" if t in res.idf else "diabaikan (tidak ada di produk mana pun)"})
+    term_tbl = pd.DataFrame(rows)
+
+    prow = []
+    for (_, r), doc in zip(d.iterrows(), docs):
+        p = tfidf(doc, res.idf)
+        dot = sum(w * p[t] for t, w in u.items() if t in p)
+        npp = math.sqrt(sum(w * w for w in p.values()))
+        lolos_sim = r["sim"] >= theta - 1e-12
+        lolos_harga = r["harga_num"] <= budget
+        status = ("Lolos" if lolos_sim and lolos_harga
+                  else "Melebihi budget" if lolos_sim else f"Sim < {theta:.2f}")
+        prow.append({"Merek": r["brand"], "Produk": r["nama_produk"],
+                     "Istilah cocok": ", ".join(sorted(prof & doc)) or "-",
+                     "|d|": len(doc), "u·p": dot, "|u|": nu, "|p|": npp, "sim(u,p)": r["sim"],
+                     "Harga (Rp)": r["harga_num"], "Status": status})
+    prod_tbl = (pd.DataFrame(prow).sort_values("sim(u,p)", ascending=False, kind="stable")
+                .reset_index(drop=True))
+    prod_tbl.insert(0, "No", prod_tbl.index + 1)
+    return term_tbl, prod_tbl
